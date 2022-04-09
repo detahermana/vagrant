@@ -1,95 +1,48 @@
 #/bin/sh
 
-install_dir="/var/www/html"
-#Creating Random WP Database Credenitals
-db_name="wp`date +%s`"
-db_user=$db_name
-db_password=`date |md5sum |cut -c '1-12'`
-sleep 1
-mysqlrootpass=`date |md5sum |cut -c '1-12'`
-sleep 1
+DBUSER="devopscilsy"
+DBPASS="pasworddb"
+DBNAME="dbwordpress"
 
-#### Install Packages for https and mysql
-apt -y update 
-apt -y upgrade
-apt -y install apache2
-apt -y install mysql-server
+#Persiapan installasi
+apt-get update -y
+apt-get upgrade -y
+apt-get install -y unzip
+apt-get install -y apache2 php php-mysql
+apt-get install -y mysql-server
+apt-get install -y php-curl php-gd php-mbstring php-xml php-xmlrpc php-soap php-intl php-zip php7.4-cli
 
+#download wordpress
+cd /tmp
+#wget https://wordpress.org/latest.zip
+wget https://github.com/detahermana/wordpress-samehada/archive/master.zip
+unzip master.zip
+sudo rm /var/www/html/index.html
+sudo mv wordpress-samehada-master/* /var/www/html
+sudo cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
 
-#### Start http
-rm /var/www/html/index.html
-systemctl enable apache2
-systemctl start apache2
+#set up user & database
+sudo mysql -u root <<MYSQL_SCRIPT
+CREATE USER '$DBUSER'@'localhost' IDENTIFIED by '$DBPASS';
+GRANT ALL PRIVILEGES ON *.* to '$DBUSER'@'localhost';
+FLUSH PRIVILEGES;
+create database $DBNAME default character set utf8 COLLATE utf8_unicode_ci;
+MYSQL_SCRIPT
 
-#### Start mysql and set root password
+#setting wordpress
+sudo chown -R www-data:www-data /var/www/html
+cd /var/www/html/
+touch .htaccess
+curl -s [https://api.wordpress.org/secret-key/1.1/salt/
 
-systemctl enable mysql
-systemctl start mysql
+#setting permission
+sudo find /var/www/html/ -type d -exec chmod 750 {} \;
+sudo find /var/www/html/ -type f -exec chmod 640 {} \;
 
-/usr/bin/mysql -e "USE mysql;"
-/usr/bin/mysql -e "UPDATE user SET Password=PASSWORD($mysqlrootpass) WHERE user='root';"
-/usr/bin/mysql -e "FLUSH PRIVILEGES;"
-touch /root/.my.cnf
-chmod 640 /root/.my.cnf
-echo "[client]">>/root/.my.cnf
-echo "user=root">>/root/.my.cnf
-echo "password="$mysqlrootpass>>/root/.my.cnf
-####Install PHP
-apt -y install php php-bz2 php-mysqli php-curl php-gd php-intl php-common php-mbstring php-xml
-
-sed -i '0,/AllowOverride\ None/! {0,/AllowOverride\ None/ s/AllowOverride\ None/AllowOverride\ All/}' /etc/apache2/apache2.conf #Allow htaccess usage
+#setting database
+sudo sed -i "s/database_name_here/$DBNAME/1" /var/www/html/wp-config.php
+sudo sed -i "s/password_here/$DBPASS/1" /var/www/html/wp-config.php
+sudo sed -i "s/username_here/$DBUSER/1" /var/www/html/wp-config.php
+rm -rf /tmp/wordpress-samehada-master
 
 systemctl restart apache2
-
-####Download and extract latest WordPress Package
-if test -f /tmp/latest.tar.gz
-then
-echo "WP is already downloaded."
-else
-echo "Downloading WordPress"
-cd /tmp/ && wget "http://wordpress.org/latest.tar.gz";
-fi
-
-/bin/tar -C $install_dir -zxf /tmp/latest.tar.gz --strip-components=1
-chown www-data: $install_dir -R
-
-#### Create WP-config and set DB credentials
-/bin/mv $install_dir/wp-config-sample.php $install_dir/wp-config.php
-
-/bin/sed -i "s/database_name_here/$db_name/g" $install_dir/wp-config.php
-/bin/sed -i "s/username_here/$db_user/g" $install_dir/wp-config.php
-/bin/sed -i "s/password_here/$db_password/g" $install_dir/wp-config.php
-
-cat << EOF >> $install_dir/wp-config.php
-define('FS_METHOD', 'direct');
-EOF
-
-cat << EOF >> $install_dir/.htaccess
-# BEGIN WordPress
-<IfModule mod_rewrite.c>
-RewriteEngine On
-RewriteBase /
-RewriteRule ^index.php$ – [L]
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.php [L]
-</IfModule>
-# END WordPress
-EOF
-
-chown www-data: $install_dir -R
-
-##### Set WP Salts
-grep -A50 'table_prefix' $install_dir/wp-config.php > /tmp/wp-tmp-config
-/bin/sed -i '/**#@/,/$p/d' $install_dir/wp-config.php
-/usr/bin/lynx --dump -width 200 https://api.wordpress.org/secret-key/1.1/salt/ >> $install_dir/wp-config.php
-/bin/cat /tmp/wp-tmp-config >> $install_dir/wp-config.php && rm /tmp/wp-tmp-config -f
-/usr/bin/mysql -u root -e "CREATE DATABASE $db_name"
-/usr/bin/mysql -u root -e "CREATE USER '$db_name'@'localhost' IDENTIFIED WITH mysql_native_password BY '$db_password';"
-/usr/bin/mysql -u root -e "GRANT ALL PRIVILEGES ON $db_name.* TO '$db_user'@'localhost';"
- 
-######Display generated passwords to log file.
-echo "Database Name: " $db_name
-echo "Database User: " $db_user
-echo "Database Password: " $db_password
-echo "Mysql root password: " $mysqlrootpass
