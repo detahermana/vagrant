@@ -1,8 +1,8 @@
 #/bin/sh
 
-DBUSER="devopscilsy"
-DBPASS="pasworddb"
-DBNAME="dbwordpress"
+DBUSER=""
+DBPASS=""
+DBNAME=""
 
 #Persiapan installasi
 apt-get update -y
@@ -18,7 +18,7 @@ cd /tmp
 wget https://github.com/detahermana/wordpress-samehada/archive/master.zip
 unzip master.zip
 sudo rm /var/www/html/index.html
-sudo mv wordpress-samehada-master/* /var/www/html
+sudo mv wordpress-samehada-main/* /var/www/html
 sudo cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
 
 #set up user & database
@@ -43,6 +43,6 @@ sudo find /var/www/html/ -type f -exec chmod 640 {} \;
 sudo sed -i "s/database_name_here/$DBNAME/1" /var/www/html/wp-config.php
 sudo sed -i "s/password_here/$DBPASS/1" /var/www/html/wp-config.php
 sudo sed -i "s/username_here/$DBUSER/1" /var/www/html/wp-config.php
-rm -rf /tmp/wordpress-samehada-master
+rm -rf /tmp/wordpress-samehada-main
 
 systemctl restart apache2
