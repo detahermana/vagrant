@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DBNAME="dbsosmed"
-DBUSER="devopscilsy"
-DBPASS="1234567890"
+DBNAME=""
+DBUSER=""
+DBPASS=""
 
 apt-get update -y
 apt-get upgrade -y
